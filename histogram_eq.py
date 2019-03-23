@@ -1,11 +1,10 @@
 import matplotlib.pyplot as plt
 import numpy as np
-import imageio
 
 import image_base
 
 
-class HistEqualisation(image_base.ImageManipulatorBase):
+class HistEqualiser(image_base.ImageManipulatorBase):
     def __init__(self, img):
         """Calculates a equalisation function from a given image.
 
@@ -40,7 +39,7 @@ class HistEqualisation(image_base.ImageManipulatorBase):
         self.img_max_val = self.img.max()
         num_levels = self.img_max_val - self.img_min_val + 1
 
-        self.hist = HistEqualisation._build_img_hist(self.img)
+        self.hist = HistEqualiser._build_img_hist(self.img)
 
         self.hist_eq = (((num_levels - 1.0) / float(self.img.size))
                         * self.hist.cumsum()).astype(int)
@@ -81,14 +80,15 @@ class HistEqualisation(image_base.ImageManipulatorBase):
             plt.xlabel("Intensity")
             plt.ylabel("Frequency")
             plt.bar(val_range,
-                    HistEqualisation._build_img_hist(self.img_mod))
+                    HistEqualiser._build_img_hist(self.img_mod))
 
         plt.show()
 
 
 if __name__ == "__main__":
-    md1 = HistEqualisation(imageio.imread("./images/nap.jpg"))
-    md2 = HistEqualisation(imageio.imread("./images/scarlett.jpg"))
+    import imageio
+    md1 = HistEqualiser(imageio.imread("./images/nap.jpg"))
+    md2 = HistEqualiser(imageio.imread("./images/scarlett.jpg"))
 
     md1.hist_equalisation()
     md2.hist_equalisation()
