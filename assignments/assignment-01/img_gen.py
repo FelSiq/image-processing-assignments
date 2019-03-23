@@ -13,7 +13,7 @@ import typing as t
 import inspect
 import random
 
-# import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 import numpy as np
 
 
@@ -188,10 +188,8 @@ class ImageGenerator:
         if self.img is None:
             raise TypeError("Please call 'generate' method before rescaling.")
 
-        """
         # Run.codes doesn't seem to have 'matplotlib', but I decided to keep
         # this code because it's really useful for debugging.
-
         if plot:
             plt.subplot(131)
             plt.title("Generated (min={:.1f}, "
@@ -204,7 +202,7 @@ class ImageGenerator:
             plt.imshow(ref_img, cmap="gray")
 
             plt.subplot(133)
-            diff_img = self.img.astype(float) - ref_img.astype(float)
+            diff_img = abs(self.img.astype(float) - ref_img.astype(float))
 
             diff_img = self.rescale(
                 img=diff_img,
@@ -215,11 +213,10 @@ class ImageGenerator:
 
             plt.title("Difference (min={:.1f}, "
                       "max={:.1f})".format(diff_img.min(), diff_img.max()))
-            plt.imshow(diff_img, cmap="gray", vmin=0, vmax=1)
+            plt.imshow(diff_img, cmap="gray")
             plt.colorbar()
 
             plt.show()
-        """
 
         flatten_img_fit = self.img.astype(float).flatten()
         flatten_img_ref = ref_img.astype(float).flatten()
@@ -274,7 +271,7 @@ class RandomWalk(ImageGenerator):
 
         coord_x, coord_y = self.start_point
 
-        self.img = np.zeros((self.img_dim, self.img_dim))
+        self.img = np.zeros((self.img_dim, self.img_dim)).astype(float)
         self.img[coord_y, coord_x] = 1
 
         for _ in range(self.max_steps):
@@ -283,7 +280,7 @@ class RandomWalk(ImageGenerator):
             coord_x = (coord_x + var_x) % self.img_dim
             coord_y = (coord_y + var_y) % self.img_dim
 
-            self.img[coord_y, coord_x] = 1
+            self.img[coord_x, coord_y] = 1
 
         return self.img
 
@@ -330,7 +327,7 @@ def main(subpath=None):
             img_dim=C,
             rand_seed=S,
             start_point=(0, 0),
-            max_steps=1 + C**2,
+            max_steps=(1 + C**2) // 2,
         )
 
     img_gen.generate()
@@ -349,10 +346,10 @@ def main(subpath=None):
 
     ref_img = np.load(ref_img_filename)
 
-    rmse = img_gen.compare(ref_img=ref_img, plot=False)
+    rmse = img_gen.compare(ref_img=ref_img, plot=True)
 
     print("{:.4f}".format(rmse))
 
 
 if __name__ == "__main__":
-    main(subpath=None)
+    main(subpath="./documents")
