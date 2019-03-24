@@ -13,7 +13,7 @@ import typing as t
 import inspect
 import random
 
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 import numpy as np
 
 
@@ -188,6 +188,7 @@ class ImageGenerator:
         if self.img is None:
             raise TypeError("Please call 'generate' method before rescaling.")
 
+        """
         # Run.codes doesn't seem to have 'matplotlib', but I decided to keep
         # this code because it's really useful for debugging.
         if plot:
@@ -217,6 +218,7 @@ class ImageGenerator:
             plt.colorbar()
 
             plt.show()
+        """
 
         flatten_img_fit = self.img.astype(float).flatten()
         flatten_img_ref = ref_img.astype(float).flatten()
@@ -352,4 +354,4 @@ def main(subpath=None):
 
 
 if __name__ == "__main__":
-    main(subpath="./documents")
+    main(subpath=None)
