@@ -8,7 +8,7 @@ class LogTransformation(image_base.ImageManipulatorBase):
         super().__init__(img)
 
     def transform_img(self, c=None, epsilon=1.0e-8):
-        """."""
+        """Shrinks the ration between maximum and minimum value of image."""
         if self.img is None:
             raise TypeError("Please fit image first")
 
@@ -47,46 +47,24 @@ if __name__ == "__main__":
     md1.plot()
     md2.plot()
 
-    hist_img1 = histogram_eq.HistEqualiser._build_img_hist(img1)
-    hist_img2 = histogram_eq.HistEqualiser._build_img_hist(img2)
-    hist_img1_t = histogram_eq.HistEqualiser._build_img_hist(img1_t)
-    hist_img2_t = histogram_eq.HistEqualiser._build_img_hist(img2_t)
-
     plt.figure(figsize=(10, 10))
-    plt.subplot(221)
-    plt.title("Image 1 Histogram")
-    plt.ylabel("Frequency")
-    plt.xlabel("Values")
-    new_hist = fix_hist(hist_img1, img1.min(), img1.max())
-    new_hist /= sum(new_hist)
-    plt.gca().set_ylim((0, 0.05))
-    plt.bar(range(256), new_hist)
 
-    plt.subplot(222)
-    plt.title("Modified Image 1 Histogram")
-    plt.ylabel("Frequency")
-    plt.xlabel("Values")
-    new_hist = fix_hist(hist_img1_t, img1_t.min(), img1_t.max())
-    new_hist /= sum(new_hist)
-    plt.gca().set_ylim((0, 0.05))
-    plt.bar(range(256), new_hist)
+    def plot(img, title, subplot, epsilon=1.0e-8):
+        hist = histogram_eq.HistEqualiser._build_img_hist(img)
+        plt.subplot(2, 2, subplot)
+        plt.title(title)
+        plt.ylabel("Frequency")
+        plt.xlabel("Values")
 
-    plt.subplot(223)
-    plt.title("Image 2 Histogram")
-    plt.ylabel("Frequency")
-    plt.xlabel("Values")
-    new_hist = fix_hist(hist_img2, img2.min(), img2.max())
-    new_hist /= sum(new_hist)
-    plt.gca().set_ylim((0, 0.05))
-    plt.bar(range(256), new_hist)
+        new_hist = fix_hist(hist, img.min(), img.max())
+        new_hist /= sum(new_hist)
+        plt.gca().set_ylim((0, 0.05))
 
-    plt.subplot(224)
-    plt.title("Modified Image 2 Histogram")
-    plt.ylabel("Frequency")
-    plt.xlabel("Values")
-    new_hist = fix_hist(hist_img2_t, img2_t.min(), img2_t.max())
-    new_hist /= sum(new_hist)
-    plt.gca().set_ylim((0, 0.05))
-    plt.bar(range(256), new_hist)
+        plt.bar(range(256), new_hist)
+
+    plot(img1, "Image 1 Histogram", 1)
+    plot(img2, "Image 2 Histogram", 2)
+    plot(img1_t, "Modified Image 1 Histogram", 3)
+    plot(img2_t, "Modified Image 2 Histogram", 4)
 
     plt.show()
