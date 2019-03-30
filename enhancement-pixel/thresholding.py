@@ -1,6 +1,10 @@
+import sys
+
 import numpy as np
 
-import image_base
+sys.path.insert(0, "../")
+
+import image_base  # noqa: E402
 
 
 class ImgThresholder(image_base.ImageManipulatorBase):
@@ -24,7 +28,7 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
     import imageio
 
-    md = ImgThresholder(imageio.imread("./images/scarlett.jpg"))
+    md = ImgThresholder(imageio.imread("../images/scarlett.jpg"))
 
     plt.figure(figsize=(12, 12))
 

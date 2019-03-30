@@ -1,6 +1,11 @@
+import sys
+
 import numpy as np
 
-import image_base
+sys.path.insert(0, "../")
+sys.path.insert(0, "../enhancement-histogram")
+
+import image_base  # noqa: E402
 
 
 class LogTransformation(image_base.ImageManipulatorBase):
@@ -35,8 +40,8 @@ if __name__ == "__main__":
                                   np.zeros(255 - v_max)))
         return hist
 
-    img1 = imageio.imread("./images/nap.jpg")
-    img2 = imageio.imread("./images/scarlett.jpg")
+    img1 = imageio.imread("../images/nap.jpg")
+    img2 = imageio.imread("../images/scarlett.jpg")
 
     md1 = LogTransformation(img1)
     md2 = LogTransformation(img2)

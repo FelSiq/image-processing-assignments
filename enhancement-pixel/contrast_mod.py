@@ -1,4 +1,7 @@
-import image_base
+import sys
+sys.path.insert(0, "../")
+
+import image_base  # noqa: E402
 
 
 class ContrastModulation(image_base.ImageManipulatorBase):
@@ -24,8 +27,8 @@ class ContrastModulation(image_base.ImageManipulatorBase):
 
 if __name__ == "__main__":
     import imageio
-    md1 = ContrastModulation(imageio.imread("./images/nap.jpg"))
-    md2 = ContrastModulation(imageio.imread("./images/scarlett.jpg"))
+    md1 = ContrastModulation(imageio.imread("../images/nap.jpg"))
+    md2 = ContrastModulation(imageio.imread("../images/scarlett.jpg"))
 
     img1 = md1.transform_img(interval=(50, 200))
     img2 = md2.transform_img(interval=(51, 211))

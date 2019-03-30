@@ -1,4 +1,7 @@
-import image_base
+import sys
+sys.path.insert(0, "../")
+
+import image_base  # noqa: E402
 
 
 class ImageInverter(image_base.ImageManipulatorBase):
@@ -23,8 +26,8 @@ class ImageInverter(image_base.ImageManipulatorBase):
 
 if __name__ == "__main__":
     import imageio
-    md1 = ImageInverter(imageio.imread("./images/nap.jpg"))
-    md2 = ImageInverter(imageio.imread("./images/scarlett.jpg"))
+    md1 = ImageInverter(imageio.imread("../images/nap.jpg"))
+    md2 = ImageInverter(imageio.imread("../images/scarlett.jpg"))
 
     md1.transform_img()
     md2.transform_img()
