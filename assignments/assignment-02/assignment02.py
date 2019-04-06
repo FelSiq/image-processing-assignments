@@ -57,7 +57,7 @@ class ImageEnhancer:
 
         return self.transformed_image
 
-    def filtering_1d(self) -> np.ndarray:
+    def filtering_1d(self, limiarize: bool = False) -> np.ndarray:
         """Apply a 1D filter in image."""
         if not isinstance(self.filter_weights, np.ndarray):
             raise TypeError("'filter weights' must be an np.ndarray, "
@@ -86,9 +86,15 @@ class ImageEnhancer:
 
         self.transformed_image = self.transformed_image.reshape(img_shape)
 
+        if limiarize:
+            aux_img = self.image
+            self.image = self.transformed_image
+            self.limiarization()
+            self.image = aux_img
+
         return self.transformed_image
 
-    def filtering_2d(self) -> np.ndarray:
+    def filtering_2d(self, limiarize: bool = True) -> np.ndarray:
         """Apply a 2D filter in image."""
         if not isinstance(self.filter_weights, np.ndarray):
             raise TypeError("'filter weights' must be an np.ndarray, "
@@ -118,6 +124,12 @@ class ImageEnhancer:
                 padded_img[(x - hfs):(x + hfs + 1), (y - hfs):(y + hfs + 1)],
             ).sum() for y in range(hfs, num_col + hfs)
         ] for x in range(hfs, num_row + hfs)])
+
+        if limiarize:
+            aux_img = self.image
+            self.image = self.transformed_image
+            self.limiarization()
+            self.image = aux_img
 
         return self.transformed_image
 
