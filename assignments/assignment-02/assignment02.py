@@ -56,6 +56,10 @@ class ImageEnhancer:
             raise TypeError("'filter weights' must be an np.ndarray, "
                             "got {}".format(type(self.filter_weights)))
 
+        if not isinstance(self.filter_size, (float, int)):
+            raise TypeError("'filter_size' must be integer or float, "
+                            "received type {}".format(type(self.filter_size)))
+
         img_shape = self.image.shape
 
         flatten_copy = self.image.ravel()
@@ -79,6 +83,29 @@ class ImageEnhancer:
 
     def median_filter(self):
         """Apply median filtering in the image."""
+        if not isinstance(self.filter_size, (float, int)):
+            raise TypeError("'filter_size' must be integer or float, "
+                            "received type {}".format(type(self.filter_size)))
+
+        hfs = self.filter_size // 2
+
+        num_row, num_col = self.image.shape
+
+        padded_img = np.pad(
+            self.image,
+            pad_width=hfs,
+            mode="constant",
+            constant_values=0,
+        )
+
+        self.transformed_image = np.array([
+            [np.median(padded_img[(x - hfs):(x + hfs + 1),
+                                  (y - hfs):(y + hfs + 1)])
+             for y in range(hfs, num_col + hfs)]
+            for x in range(hfs, num_col + hfs)
+        ])
+
+        return self.transformed_image
 
     def transform(self):
         if self.method == "limiarization":
