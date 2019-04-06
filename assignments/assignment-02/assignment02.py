@@ -17,6 +17,7 @@ import matplotlib.pyplot as plt
 
 
 class ImageEnhancer:
+    """Various image enhancing methods."""
 
     def __init__(self,
                  image: np.ndarray,
@@ -25,6 +26,12 @@ class ImageEnhancer:
                  filter_size: t.Optional[int] = None,
                  filter_weights: t.Optional[np.ndarray] = None):
         """Enhance an image using various techniques."""
+        if not isinstance(image, np.ndarray):
+            raise TypeError("'image' must be a np.array.")
+
+        if not isinstance(method, str):
+            raise TypeError("'method' type must be string.")
+
         self.image = image
         self.transformed_image = None
         self.method = method
@@ -44,7 +51,7 @@ class ImageEnhancer:
             mean_2 = self.image[self.image <= self.threshold].mean()
 
             prev_threshold = self.threshold
-            self.threhsold = 0.5 * (mean_1 + mean_2)
+            self.threshold = 0.5 * (mean_1 + mean_2)
 
         self.transformed_image = (self.image > self.threshold).astype(np.uint8)
 
@@ -68,20 +75,53 @@ class ImageEnhancer:
 
         half_filter_size = self.filter_size // 2
 
-        for i in range(self.transformed_image.size):
+        for index in range(self.transformed_image.size):
             image_piece = np.take(
                 flatten_copy,
-                range(i - half_filter_size, i + half_filter_size + 1),
+                range(index - half_filter_size, index + half_filter_size + 1),
                 mode="wrap")
 
-            self.transformed_image[i] = np.dot(image_piece,
-                                               self.filter_weights)
+            self.transformed_image[index] = np.dot(image_piece,
+                                                   self.filter_weights)
 
         self.transformed_image = self.transformed_image.reshape(img_shape)
 
         return self.transformed_image
 
-    def median_filter(self):
+    def filtering_2d(self) -> np.ndarray:
+        """Apply a 2D filter in image."""
+        if not isinstance(self.filter_weights, np.ndarray):
+            raise TypeError("'filter weights' must be an np.ndarray, "
+                            "got {}".format(type(self.filter_weights)))
+
+        if not isinstance(self.threshold, (float, int)):
+            raise TypeError("'threshold' must be integer or float, "
+                            "received type {}".format(type(self.threshold)))
+
+        if not isinstance(self.filter_size, (float, int)):
+            raise TypeError("'filter_size' must be integer or float, "
+                            "received type {}".format(type(self.filter_size)))
+
+        hfs = self.filter_size // 2
+
+        padded_img = np.pad(
+            self.image,
+            pad_width=hfs,
+            mode="symmetric",
+        )
+
+        num_row, num_col = self.image.shape
+
+        self.transformed_image = np.array([[
+            np.multiply(
+                self.filter_weights,
+                padded_img[(x - hfs):(x + hfs + 1), (y - hfs):(y + hfs + 1)],
+            ).sum() for y in range(hfs, num_col + hfs)
+        ] for x in range(hfs, num_row + hfs)])
+
+        return self.transformed_image
+
+    def median_filter(self) -> np.ndarray:
         """Apply median filtering in the image."""
         if not isinstance(self.filter_size, (float, int)):
             raise TypeError("'filter_size' must be integer or float, "
@@ -98,16 +138,16 @@ class ImageEnhancer:
             constant_values=0,
         )
 
-        self.transformed_image = np.array([
-            [np.median(padded_img[(x - hfs):(x + hfs + 1),
-                                  (y - hfs):(y + hfs + 1)])
-             for y in range(hfs, num_col + hfs)]
-            for x in range(hfs, num_col + hfs)
-        ])
+        self.transformed_image = np.array([[
+            np.median(
+                padded_img[(x - hfs):(x + hfs + 1), (y - hfs):(y + hfs + 1)])
+            for y in range(hfs, num_col + hfs)
+        ] for x in range(hfs, num_row + hfs)])
 
         return self.transformed_image
 
     def transform(self):
+        """Transform given image with selected method."""
         if self.method == "limiarization":
             self.limiarization()
 
@@ -124,6 +164,7 @@ class ImageEnhancer:
             raise ValueError("Unknown method.")
 
     def plot(self):
+        """Plot original image and reference image side-by-side."""
         plt.figure(figsize=(12, 12))
         plt.subplot(121)
         plt.title("Reference")
@@ -139,6 +180,7 @@ class ImageEnhancer:
                 val_min: t.Union[int, float] = 0,
                 val_max: t.Union[int, float] = 255,
                 dtype: t.Type = np.uint8):
+        """Rescale transformed image values to [val_min, val_max] interval."""
         if not isinstance(self.transformed_image, np.ndarray):
             raise TypeError("First 'transform' the fitted image "
                             "before rescaling.")
@@ -159,6 +201,7 @@ class ImageEnhancer:
         return self.transformed_image
 
     def compare(self) -> float:
+        """Compare reference and transformed images and return RMSE."""
         if not isinstance(self.image, np.ndarray):
             raise TypeError("'image' attribute type must be a np.ndarray, "
                             "got {}".format(type(self.image)))
@@ -173,8 +216,8 @@ class ImageEnhancer:
         flt_modified_img = self.transformed_image.astype(float)
 
         rmse = np.sqrt(
-            np.power(flt_original_img - flt_modified_img, 2).sum()
-            / (num_row * num_col))
+            np.power(flt_original_img - flt_modified_img, 2).sum() /
+            (num_row * num_col))
 
         return rmse
 
@@ -184,6 +227,7 @@ if __name__ == "__main__":
 
     def get_parameters(subpath: str = None):
         """Get test cases arguments."""
+
         def get_str(dtype: t.Type = str, split: bool = False) -> t.Any:
             if split:
                 return np.array(input().strip().split()).astype(dtype)
@@ -212,21 +256,19 @@ if __name__ == "__main__":
             args["threshold"] = get_str(dtype=float)
 
         elif method == "1D filtering":
-            n = args["filter_size"] = get_str(dtype=int)
+            args["filter_size"] = get_str(dtype=int)
             args["filter_weights"] = get_str(dtype=float, split=True)
 
         elif method == "2D filtering":
-            n = args["filter_size"] = get_str(dtype=int)
+            f_size = args["filter_size"] = get_str(dtype=int)
 
-            args["filter_weights"] = np.array([
-                get_str(dtype=float, split=True)
-                for _ in range(n)
-            ])
+            args["filter_weights"] = np.array(
+                [get_str(dtype=float, split=True) for _ in range(f_size)])
 
             args["threshold"] = get_str(dtype=float)
 
         elif method == "2D median":
-            n = args["filter_size"] = get_str(dtype=int)
+            args["filter_size"] = get_str(dtype=int)
 
         else:
             raise ValueError("Unknown method.")
