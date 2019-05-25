@@ -329,7 +329,7 @@ def main(subpath=None):
             img_dim=C,
             rand_seed=S,
             start_point=(0, 0),
-            max_steps=(1 + C**2) // 2,
+            max_steps=(1 + C**2),
         )
 
     img_gen.generate()
