@@ -18,12 +18,29 @@ import imageio
 
 class KMeans:
     """Naive implementation of K-Means clustering algorithm."""
+
     def __init__(self,
                  data: np.ndarray,
                  cluster_num: int = 3,
-                 it_max: int = 1.0e+5,
+                 it_max: int = 20,
                  random_seed: int = None):
-        """."""
+        """Nvaive implementation of kmeans algorithm.
+        
+        Parameters
+        ----------
+        data : :obj:`np.array`
+        A NxM dataset, where N is the number of instances and
+        M the number of attributes.
+
+        cluster_num : :obj:`int`, optional
+        Number of cluster at the start,
+
+        it_max : obj:`int`, optional
+        Maximum number of iterations allowed until convergence.
+
+        random_seed : :obj:`int`, optional
+        Random seed to be used in cluster initiation.
+        """
         self.X = data.copy()
         self.cluster_num = cluster_num
         self.it_max = it_max
@@ -32,7 +49,7 @@ class KMeans:
         self.cluster_ids = None
         self.centroids = None
 
-    def _init_centroids(self):
+    def _init_centroids(self) -> None:
         """Init model centroids."""
         num_inst, _ = self.X.shape
 
@@ -42,34 +59,75 @@ class KMeans:
 
         self.centroids = self.X[centroid_ids, :]
 
-    def fit(self, dist_ord: int = 2):
-        """."""
+    def fit(self,
+            dist_ord: t.Union[float, int] = 2,
+            epsilon: float = 1.0e-1) -> np.ndarray:
+        """Run kmeans algorithm.
+        
+        Parameters
+        ----------
+        dist_ord : :obj:`numeric`, optional
+        Order of the minkowski distance.
+
+        epsilon : :obj:`epsilon`, optional
+        A tiny value to use as convergence value.
+
+        Return
+        ------
+        :obj:`np.ndarray`
+            Clusters id of each instance.
+        """
         self._init_centroids()
 
         num_inst, _ = self.X.shape
         self.cluster_ids = np.zeros(num_inst)
 
-        for _ in np.arange(self.it_max):
+        convergence = False
+        it = 0
+
+        while it < self.it_max and not convergence:
+            it += 1
             # Update instance clusters once.
             for inst_id, inst_coord in enumerate(self.X):
-                self.cluster_ids[inst_id] = np.argmin([
-                    np.linalg.norm(centroid_coord - inst_coord, ord=2)
+                self.cluster_ids[inst_id] = dists = np.nanargmin(np.array([
+                    np.linalg.norm(centroid_coord - inst_coord, ord=dist_ord)
                     for centroid_coord in self.centroids
-                ])
+                ]))
 
             # Update centroid coordinates once.
+            prev_centroids = self.centroids
+
             self.centroids = np.array([
                 self.X[self.cluster_ids == cl_id, :].mean(axis=0)
-                for cl_id in np.arange(self.cluster_num)
+                for cl_id in np.unique(self.cluster_ids)
             ])
+
+            convergence = np.allclose(prev_centroids, self.centroids, atol=epsilon)
 
         return self.cluster_ids
 
 
 class ImageTransformer:
     """Various methods for image transformation."""
+
     def __init__(self, option: int):
-        """."""
+        """Image transformer.
+        
+        Parameters
+        ----------
+        option : :obj:`int`
+            One number between 1 and 4. Method used to encode the
+            image as a dataset. Each pixel is encoded as a instance
+            (i.e., a row) with the following attributes.
+
+            * 1: RGB (R, G, B) (dimension 3)
+            * 2: RGBxy (R, G, B, x, y) (dimension 5)
+            * 3: Luminance (Luminance) (dimension 1)
+            * 4: Luminancexy (Luminance, x, y) (dimension 3)
+
+            The luminance is calculated as a linear combination of
+            the RGB values with weights [.299, .587, .114].
+        """
         if option not in np.arange(1, 5):
             raise ValueError("'option' must be an integer between 1 "
                              "and 4 (both inclusive).")
@@ -87,20 +145,14 @@ class ImageTransformer:
         self._LUMINANCE_MAGIC_NUMBERS = np.array([.299, .587, .114])
         """Magic numbers given by the assignment specification."""
 
-    def _concat_coords(self,
-                       img: np.ndarray,
-                       num_row: int,
+    def _concat_coords(self, img: np.ndarray, num_row: int,
                        num_col: int) -> np.ndarray:
         """Concatenate (x, y) coordinates as two new attributes in data."""
-        vals_x = np.array([[
-            j for j in np.arange(num_col)]
-            for i in np.arange(num_row)
-        ]).reshape(-1, 1)
+        vals_x = np.array([[j for j in np.arange(num_col)]
+                           for i in np.arange(num_row)]).reshape(-1, 1)
 
-        vals_y = np.array([
-            [i] * num_col
-            for i in np.arange(num_row)
-        ]).reshape(-1, 1)
+        vals_y = np.array([[i] * num_col for i in np.arange(num_row)]).reshape(
+            -1, 1)
 
         return np.hstack((img, vals_x, vals_y))
 
@@ -130,9 +182,7 @@ class ImageTransformer:
         num_row, num_col, _ = img.shape
 
         img = self._concat_coords(
-            self.transformation_rgb(img),
-            num_row=num_row,
-            num_col=num_col)
+            self.transformation_rgb(img), num_row=num_row, num_col=num_col)
 
         return img
 
@@ -154,7 +204,21 @@ class ImageTransformer:
     def normalize_img(self,
                       v_min: t.Union[int, float] = 0,
                       v_max: t.Union[int, float] = 255) -> np.ndarray:
-        """Normalize the image values to [v_min, v_max] interval."""
+        """Normalize the fitted image values to [v_min, v_max] interval.
+        
+        Arguments
+        ---------
+        v_min : :obj:`int` or :obj:`float`, optional
+            Minimal value of normalization.
+
+        v_max : :obj:`int` or :obj:`float`, optional
+            Maximal value of normalization.
+
+        Return
+        ------
+        :obj:`np.ndarray`
+            Normalized image.
+        """
         if self.img_seg is None:
             raise TypeError("Please restore an image before normalizing it.")
 
@@ -165,8 +229,8 @@ class ImageTransformer:
             self.img_seg = np.full(self.img_seg.shape, v_min)
             return self.img_seg
 
-        self.img_seg = (v_min + (v_max - v_min)
-                        * (self.img_seg - img_min) / (img_max - img_min))
+        self.img_seg = (v_min + (v_max - v_min) * (self.img_seg - img_min) /
+                        (img_max - img_min))
 
         return self.img_seg
 
@@ -177,12 +241,29 @@ class ImageColSeg(ImageTransformer):
                  img_ref: str,
                  option: int,
                  cluster_num: int = 3,
-                 it_max: int = 1.0e+5,
+                 it_max: int = 20,
                  random_seed: t.Optional[int] = None):
-        """
+        """Image segmentation using kmeans method.
 
-        Args
-        ----
+        Arguments
+        ---------
+        img_inp : :obj:`str`
+            The input image.
+
+        img_red : :obj:`str`
+            The reference image.
+
+        option : :obj:`int`
+            Option used to encode the dataset.
+
+        cluster_num : :obj:`int`, optional
+            Number of clusters to use when segmenting the image.
+
+        it_max : :obj:`int`, optional
+            Max iterations before convergenve in the kmeans algorithm.
+
+        random_seed : :obj:`int`, optional
+            Random seed to initialize the kmeans clusters.
         """
         super().__init__(option=option)
 
@@ -227,12 +308,18 @@ class ImageColSeg(ImageTransformer):
 
         img_a = self.img_seg.astype(float)
         img_b = self.img_ref.astype(float)
-        rmse = np.sqrt(np.power(img_a - img_b, 2.0).sum()
-                       / np.prod(self.img_seg.shape))
+        rmse = np.sqrt(
+            np.power(img_a - img_b, 2.0).sum() / np.prod(self.img_seg.shape))
         return rmse
 
     def colseg(self, normalize: bool = True) -> np.ndarray:
-        """Colorize and segment the image using K-Means."""
+        """Colorize and segment the image using K-Means.
+        
+        Arguments
+        ---------
+        normalize : :obj:`bool`, optional
+            If True, normalize the resultant image.
+        """
         self.img_seg = self._kmeans_model.fit()
 
         if normalize:
@@ -249,11 +336,7 @@ if __name__ == "__main__":
 
     def get_parameters(subpath: str = None) -> t.Dict[str, t.Any]:
         """Get test case parameters."""
-        param_name = ("img_inp",
-                      "img_ref",
-                      "option",
-                      "cluster_num",
-                      "it_max",
+        param_name = ("img_inp", "img_ref", "option", "cluster_num", "it_max",
                       "random_seed")
         param_types = (str, str, int, int, int, int)
 
