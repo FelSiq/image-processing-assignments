@@ -10,10 +10,11 @@ Student data:
     Undergraduation Student
 """
 import typing as t
+import random
 
 import numpy as np
-import random
 import imageio
+import scipy.spatial
 
 
 class KMeans:
@@ -61,7 +62,8 @@ class KMeans:
 
     def fit(self,
             dist_ord: t.Union[float, int] = 2,
-            epsilon: float = 1.0e-1) -> np.ndarray:
+            epsilon: float = 1.0e-1,
+            verbose: bool = False) -> np.ndarray:
         """Run kmeans algorithm.
         
         Parameters
@@ -71,6 +73,10 @@ class KMeans:
 
         epsilon : :obj:`epsilon`, optional
         A tiny value to use as convergence value.
+
+        verbose : :obj:`bool`, optional
+        If True, print the convergence distance each ten ṕercent
+        of total iterations.
 
         Return
         ------
@@ -88,11 +94,9 @@ class KMeans:
         while it < self.it_max and not convergence:
             it += 1
             # Update instance clusters once.
-            for inst_id, inst_coord in enumerate(self.X):
-                self.cluster_ids[inst_id] = dists = np.nanargmin(np.array([
-                    np.linalg.norm(centroid_coord - inst_coord, ord=dist_ord)
-                    for centroid_coord in self.centroids
-                ]))
+            self.cluster_ids = np.nanargmin(
+                scipy.spatial.distance.cdist(self.X, self.centroids),
+                axis=1)
 
             # Update centroid coordinates once.
             prev_centroids = self.centroids
@@ -103,6 +107,12 @@ class KMeans:
             ])
 
             convergence = np.allclose(prev_centroids, self.centroids, atol=epsilon)
+
+            if verbose and it % (self.it_max // 10) == 0:
+                rmse = np.sqrt(np.sum(np.square(prev_centroids - self.centroids)
+                                      / prev_centroids.size))
+                print("Iteration {}: root mean squared error: {}"
+                      "".format(it, rmse))
 
         return self.cluster_ids
 
@@ -128,19 +138,22 @@ class ImageTransformer:
             The luminance is calculated as a linear combination of
             the RGB values with weights [.299, .587, .114].
         """
-        if option not in np.arange(1, 5):
-            raise ValueError("'option' must be an integer between 1 "
-                             "and 4 (both inclusive).")
-
-        self.option = option
-
         self._TRANSFORMATIONS = (
             self.transformation_rgb,
             self.transformation_rgbxy,
             self.transformation_luminance,
             self.transformation_luminancexy,
+            self.transformation_xy,
         )
+
         """Available transformations of this class."""
+
+        if option not in np.arange(1, len(self._TRANSFORMATIONS)+1):
+            raise ValueError("'option' must be an integer between 1 "
+                             "and {} (both inclusive)."
+                             "".format(len(self._TRANSFORMATIONS)))
+
+        self.option = option
 
         self._LUMINANCE_MAGIC_NUMBERS = np.array([.299, .587, .114])
         """Magic numbers given by the assignment specification."""
@@ -197,6 +210,19 @@ class ImageTransformer:
 
         return img
 
+    def transformation_xy(self, img: np.ndarray) -> np.ndarray:
+        """Transform the given MxN grayscale image into a xy (M*N)x3 dataset."""
+        print(img.shape)
+        if img.ndim > 2:
+            raise ValueError("'xy' option can only be used with grayscale images.")
+
+        img = self._concat_coords(
+            img.reshape(-1, 1),
+            num_row=img.size,
+            num_col=1)
+
+        return img
+
     def transform(self, img: np.ndarray) -> np.ndarray:
         """Transform the given image with given ``option``."""
         return self._TRANSFORMATIONS[self.option - 1](img)
@@ -238,8 +264,8 @@ class ImageTransformer:
 class ImageColSeg(ImageTransformer):
     def __init__(self,
                  img_inp: str,
-                 img_ref: str,
                  option: int,
+                 img_ref: t.Optional[str] = None,
                  cluster_num: int = 3,
                  it_max: int = 20,
                  random_seed: t.Optional[int] = None):
@@ -250,11 +276,11 @@ class ImageColSeg(ImageTransformer):
         img_inp : :obj:`str`
             The input image.
 
-        img_red : :obj:`str`
-            The reference image.
-
         option : :obj:`int`
             Option used to encode the dataset.
+
+        img_ref : :obj:`str`, optional
+            The reference image.
 
         cluster_num : :obj:`int`, optional
             Number of clusters to use when segmenting the image.
@@ -279,8 +305,16 @@ class ImageColSeg(ImageTransformer):
         if it_max <= 0:
             raise ValueError("'it_max' must be a positive integer.")
 
-        self.img_ref = self._open_img(img_ref, npy=True)
-        self.img_inp = self.transform(self._open_img(img_inp))
+        self.img_ref = None
+
+        if img_ref:
+            self.img_ref = self._open_img(img_ref, npy=True)
+
+        self.img_inp = self._open_img(img_inp)
+
+        self._input_shape = self.img_inp.shape
+
+        self.img_inp = self.transform(self.img_inp)
 
         self.option = option
 
@@ -312,43 +346,77 @@ class ImageColSeg(ImageTransformer):
             np.power(img_a - img_b, 2.0).sum() / np.prod(self.img_seg.shape))
         return rmse
 
-    def colseg(self, normalize: bool = True) -> np.ndarray:
+    def colseg(self, normalize: bool = True, verbose: bool = False) -> np.ndarray:
         """Colorize and segment the image using K-Means.
         
         Arguments
         ---------
         normalize : :obj:`bool`, optional
             If True, normalize the resultant image.
+
+        verbose : :obj:`bool`, optional
+            If True, print the root mean squared error for each
+            ten percent of kmeans total iterations.
         """
-        self.img_seg = self._kmeans_model.fit()
+        self.img_seg = self._kmeans_model.fit(verbose=verbose)
 
         if normalize:
             self.normalize_img()
 
-        self.img_seg = self.img_seg.reshape(self.img_ref.shape[:2])
+        self.img_seg = self.img_seg.reshape(self._input_shape[:2])
 
         return self.img_seg
 
 
 if __name__ == "__main__":
-    subpath = None
-    # subpath = "./tests/"
+    # subpath = None
+    # # subpath = "./tests/"
 
-    def get_parameters(subpath: str = None) -> t.Dict[str, t.Any]:
-        """Get test case parameters."""
-        param_name = ("img_inp", "img_ref", "option", "cluster_num", "it_max",
-                      "random_seed")
-        param_types = (str, str, int, int, int, int)
+    # def get_parameters(subpath: str = None) -> t.Dict[str, t.Any]:
+    #     """Get test case parameters."""
+    #     param_name = ("img_inp", "img_ref", "option", "cluster_num", "it_max",
+    #                   "random_seed")
+    #     param_types = (str, str, int, int, int, int)
 
-        params = {
-            p_name: p_type(input().strip())
-            for p_name, p_type in zip(param_name, param_types)
-        }
+    #     params = {
+    #         p_name: p_type(input().strip())
+    #         for p_name, p_type in zip(param_name, param_types)
+    #     }
 
-        return params
+    #     return params
 
-    model = ImageColSeg(**get_parameters(subpath=subpath))
-    model.colseg()
-    rmse = model.compare()
+    # model = ImageColSeg(**get_parameters(subpath=subpath))
+    # model.colseg()
+    # rmse = model.compare()
 
-    print("{:.4f}".format(rmse))
+    # print("{:.4f}".format(rmse))
+    import matplotlib.pyplot as plt
+    import matplotlib.gridspec as gsp
+    import sys
+
+    if len(sys.argv) < 2:
+        print("usage:", sys.argv[0], "<input image path>")
+        exit(1)
+
+    model = ImageColSeg(
+         img_inp=sys.argv[1],
+         option=2,
+         cluster_num=30,
+         it_max=40,
+         random_seed=1234)
+
+    out_img = model.colseg(verbose=True)
+
+    plt.figure(figsize=(13.25, 10))
+    gp_obj = gsp.GridSpec(2, 4)
+    gp_obj.update(wspace=0.0, hspace=0.0)
+
+    colors = ["ocean", "magma", "plasma", "winter",
+              "seismic", "inferno", "viridis", "Spectral"]
+
+    for idx, col in enumerate(colors):
+        plt.subplot(gp_obj[idx])
+        plt.imshow(out_img, cmap=col)
+        plt.axis("off")
+
+    plt.savefig("psout.png", bbox_inches="tight", pad_inches=0)
